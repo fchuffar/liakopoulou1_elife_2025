@@ -1,6 +1,6 @@
 # liakopoulou1_elife_2025
 
-A set of scripts that orchestrates the analysis of ATAC-Seq data of [Liakopoulou et al., elife, 2025].
+A set of scripts that orchestrates the analysis of ATAC-Seq and RNA-seq data of [Liakopoulou et al., elife, 2025].
 
 
 # 1. Set parameters there and in *config* file. 
