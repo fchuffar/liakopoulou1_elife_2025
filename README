@@ -52,11 +52,6 @@ echo " -1 /home/chuffarf/projects/datashare/liakopoulou1_elife_2025/raw/s10_R_mm
 echo " -1 /home/chuffarf/projects/datashare/liakopoulou1_elife_2025/raw/s11_R_mm_R1_fastxtrimf30.fastq.gz -2 /home/chuffarf/projects/datashare/liakopoulou1_elife_2025/raw/s11_R_mm_R2_fastxtrimf30.fastq.gz " > s11_R_mm_trim30.info
 echo " -1 /home/chuffarf/projects/datashare/liakopoulou1_elife_2025/raw/s12_R_mm_R1_fastxtrimf30.fastq.gz -2 /home/chuffarf/projects/datashare/liakopoulou1_elife_2025/raw/s12_R_mm_R2_fastxtrimf30.fastq.gz " > s12_R_mm_trim30.info
 
-# echo " -U /home/chuffarf/projects/datashare/GSE77277/raw/SRR3126242_fastxtrimf30.fastq.gz "  > GSM2047206_trim30.info
-
-# echo " -1  /home/chuffarf/projects/datashare/mmspz/raw/S003633_Spz_pos_pos_4min-165165_R1_001_fastxtrimf30.fastq.gz, /home/chuffarf/projects/datashare/mmspz/raw/S003633_Spz_pos_pos_4min-172172_R1_001_fastxtrimf30.fastq.gz    -2  /home/chuffarf/projects/datashare/mmspz/raw/S003633_Spz_pos_pos_4min-165165_R2_001_fastxtrimf30.fastq.gz, /home/chuffarf/projects/datashare/mmspz/raw/S003633_Spz_pos_pos_4min-172172_R2_001_fastxtrimf30.fastq.gz   "  > S_pp2_trim30.info
-## and set samples there:
-
 cat  *_trim30.info
 
 cd ~/projects/${project}/results/${gse}/
@@ -71,10 +66,6 @@ snakemake -k -s 02_align_fastq_files.py --cores 16 -pn
 ## or on the dahu cluster:
 snakemake -k -s 02_align_fastq_files.py --jobs 50 --cluster "oarsub --project epimed -l nodes=1/core={threads},walltime=6:00:00 "  --latency-wait 60 -pn
 
-
-#/home/fchuffar/projects/datashare/genomes/Candida_albicans/CGD/SC5314.A22/Annotation/Genes/genes.gtf 
-# cat /home/fchuffar/projects/datashare/genomes/Candida_albicans/CGD/SC5314.A22/Annotation/Genes/genes.gtf  |  awk 'OFS="\t" {if ($3=="CDS") {print $1,$4-1,$5,$10,$6,$7}}' | tr -d '";' > /home/fchuffar/projects/datashare/genomes/Candida_albicans/CGD/SC5314.A22/Annotation/Genes/genes.bed
-# cat /home/fchuffar/projects/datashare/genomes/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.gtf  |  awk 'OFS="\t" {if ($3=="CDS") {print $1,$4-1,$5,$10,$6,$7}}' | tr -d '";' > /home/fchuffar/projects/datashare/genomes/Homo_sapiens/UCSC/hg38/Annotation/Genes/genes.bed
 # 6. 03_metagene.Rmd and so on
 source ~/conda_config.sh 
 conda activate mnase_env
