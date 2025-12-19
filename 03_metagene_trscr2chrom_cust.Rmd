@@ -1,0 +1,411 @@
+---
+title: "ATAC-seq, Atad2 WT vs. KO"
+author: "Florent Chuffart"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+---
+
+
+```{r, echo=FALSE, eval=TRUE}
+knitr::opts_chunk$set(collapse=TRUE, comment = "#>", fig.width=9, fig.height=6, eval=TRUE, echo=FALSE, results="hide")
+source("config")
+source("config.R")
+source("common.R")
+```
+
+# Figures
+
+```{r label="params"}
+prefix = "trscr2chrom_cust_mmspg_R_q1234"
+```
+
+```{r label="blacklist", eval=TRUE}
+options(scipen=999)
+if (species=="Mus_musculus" & version=="mm10") {
+  # https://zenbu-wiki.gsc.riken.jp/zenbu/wiki/index.php/Uploading_UCSC_repetitive_elements_track
+  # downloading UCSC rmsk data as BED
+  # BED formatted UCSC track content can be obtained from UCSC table broswer.
+  # The rmsk RepeatMasker (rmsk) track can be exported as BED file by selecting
+  #
+  # the assembly "Feb.2009 GRCh37/hg19"
+  # the group "repeats and variations"
+  # the track "RepeatMasker"
+  # and finally the table "rmsk"
+  # As we desire the complete repetitive elements genome-wide to be loaded into ZENBU, therefore we select
+  #
+  # region: "genome"
+  # ZENBU enable gzip compressed bed files to be loaded directly, so we will further select :
+  #
+  # output format: "BED - browser extensibke format"
+  # output file: we will name the file "UCSC_rmsk.hg19.bed.gz"
+  # file type returned: "gzip compressed"
+
+  rmsk = mread.table("~/projects/datashare/genomes/Mus_musculus/UCSC/mm10/rmsk.mm10.bed", skip=1, stringsAsFactors=FALSE)
+  blacklist = rmsk[rmsk[,4] %in% c("GSAT_MM","SYNREP_MM"),]#, "(CTGTG)n"),]#
+  blacklist = rbind(blacklist, list("chr19", 61266781, 61266782, "chr19:61266781-61266782", 1404, "+"))
+  blacklist = rbind(blacklist, list("chr11", 3126500, 3200500, "Sfi1", 300, "-"))
+  # sat2_feat_saf = rbind(sat2_feat_saf, list("Sfi1", "chr11", 3126500, 3200500, "-"))
+  print(head(blacklist))
+  dim(blacklist)
+  blacklist_filename = "blacklist_file.bed"
+  write.table(blacklist, file=blacklist_filename, sep="\t", quote=FALSE,row.names=FALSE, col.names=FALSE)      
+} else if (species=="Homo_sapiens" & version=="hg38"){
+  rmsk = mread.table("~/projects/datashare/genomes/Homo_sapiens/UCSC/hg38/rmsk.hg38.bed", skip=1, stringsAsFactors=FALSE)
+  blacklist = rmsk[1,]
+  blacklist = rbind(blacklist, list("chrM", 1, 20000, "chrM:1-20000", 20000, "+"))
+  blacklist = blacklist[-1,]
+  print(head(blacklist))
+  dim(blacklist)
+  blacklist_filename = "blacklist_file.bed"
+  write.table(blacklist, file=blacklist_filename, sep="\t", quote=FALSE,row.names=FALSE, col.names=FALSE)      
+} else if (species=="Candida_albicans" & version=="SC5314.A22"){
+  blacklist_filename=NULL
+} else if (species=="Saccharomyces_cerevisiae" & version=="sacCer3"){
+  blacklist_filename=NULL
+  blacklist = data.frame("chrM", 1, 85779, "chrM:1-8577919", 85778, "+")
+  print(head(blacklist))
+  dim(blacklist)
+  blacklist_filename = "blacklist_file.bed"
+  write.table(blacklist, file=blacklist_filename, sep="\t", quote=FALSE,row.names=FALSE, col.names=FALSE)      
+} else {
+  stop("genome not Homo_sapiens hg38 nor Mus_musculus mm10 nor Candida_albicans SC5314.A22 nor Saccharomyces_cerevisiae sacCer3")
+}
+```
+
+
+
+## A {-}
+
+
+```{r volcano, echo=FALSE}
+# palette(c("black", "blue", "cyan", "green3", "orange"))
+palette(c("blue", "cyan", "green3", "orange")) 
+
+table_file = list.files("../rnaseq_mmspg/04_deseq2/tables", "*.complete.txt", full.names=TRUE)[1]
+df = read.table(table_file, header=TRUE)
+rownames(df) = df$Id
+df$meanR = apply(log2(df[,c("R_h2al2WT_rep1", "R_h2al2WT_rep2", "R_h2al2WT_rep3")] + 1), 1, mean)
+df$sdR = apply(log2(df[,c("R_h2al2WT_rep1", "R_h2al2WT_rep2", "R_h2al2WT_rep3")] + 1), 1, sd)
+df = df[order(df$meanR),]
+q = rev(quantile(df$meanR, c(0, .25, .5, .75)))
+df$grp = 1
+idx = df$meanR<q[1] ; df[idx,]$grp = df[idx,]$grp + 1
+idx = df$meanR<q[2] ; df[idx,]$grp = df[idx,]$grp + 1
+idx = df$meanR<q[3] ; df[idx,]$grp = df[idx,]$grp + 1
+
+table(df$grp)
+
+
+# gs =  sample(rownames(df)[df$grp==5])[1:100]
+layout(1, respect=TRUE)
+main = "Expression in Round spermatids"
+plot(df$sdR, df$meanR, 
+  xlab="sd", ylab="mean", 
+  col=adjustcolor(abs(df$grp), alpha.f=0.3),
+  main=main 
+)
+legend("topright", col=names(table(df$grp)), paste0("grp", names(table(df$grp)), " (", table(df$grp), ")"), pch=1)
+
+regions = paste0("grp", sort(unique(df$grp)))
+grp_files = sapply(sort(unique(df$grp)), function(i) {
+  grp_file = paste0("grp", i, "_", prefix, ".txt")
+  tmp_df = df[df$grp==i,]
+  write.table(tmp_df, grp_file)
+  grp_file
+})
+
+```
+
+
+
+```{r label="tss_feature"}
+regions_filenames = paste0("~/projects/datashare/genomes/", species, "/", annotation, "/", version, "/Annotation/Genes/genes.bed")
+regions_filenames
+genes = read.table(regions_filenames, stringsAsFactors=FALSE)
+
+regions_filenames = sapply(unique(grp_files), function(grp_file) {
+  foo = read.table(grp_file, header=TRUE, stringsAsFactors=FALSE)
+  grp_idx = foo[,1]
+
+  regions_filename = paste0("genes_", grp_file, ".bed")
+  write.table(genes[genes[,4] %in% grp_idx,1:6], file=regions_filename, sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
+  regions_filename
+})
+```
+
+
+```{r}
+print(regions_filenames)
+```
+
+
+
+```{r}
+system("cat config.R", intern=TRUE)
+```
+
+```{r, label="computeMatrix tss_keys", eval=TRUE}
+dir.create("tmp", showWarnings=FALSE)
+matrix_filename = paste0("tmp/matrix_", prefix, ".txt.gz")
+# score_filenames
+score_filenames = paste0("/home/fchuffar/projects/datashare/", gse, "/", samples, "_end-to-end_trim30_bowtie2_", species, "_", annotation, "_", version, "_srt_", sr_or_pe, "_30_4_RPKM.bw")
+brsl = 500
+arsl = 1500
+bin_size = 10
+
+cmd = "computeMatrix"
+args = paste0("reference-point -S ", paste0(score_filenames, collapse=" "),  
+              " -R ", paste0(regions_filenames, collapse=" "), 
+              " --outFileName ", matrix_filename, " --referencePoint TSS --binSize ", bin_size, "  --beforeRegionStartLength ", brsl, " --afterRegionStartLength ", arsl, " --numberOfProcessors 32 --sortRegions descend --blackListFileName blacklist_file.bed")
+print(paste(cmd, args))
+msystem2(cmd, args)
+
+```
+
+## B {-}
+
+
+
+```{r eval=TRUE, label="heatmap"}
+hm_out_filename = paste0("tmp/hm_metagene_", prefix, ".png")
+cmd = "plotHeatmap"
+args = paste0("--matrixFile ", matrix_filename, " --outFileName ", hm_out_filename, " --colorMap YlOrRd --sortRegions descend  --samplesLabel ", paste0(samples, collapse=" "), " --regionsLabel ", paste0(regions, collapse=" "))
+print(paste(cmd, args))
+system2(cmd, args)
+```
+
+```{r, echo=FALSE, eval=TRUE, out.width="100%", results="markup"}
+knitr::include_graphics(hm_out_filename)
+```
+
+
+
+```{r eval=TRUE, label="heatmap2"}
+# hm_out_filename = paste0("tmp/hm_metagene_", prefix, "_perGroup.png")
+# cmd = "plotHeatmap"
+# args = paste0("--matrixFile ", matrix_filename, " --outFileName ", hm_out_filename, " --colorMap YlOrRd --sortRegions descend --perGroup --samplesLabel ", paste0(samples, collapse=" "), " --regionsLabel ", paste0(regions, collapse=" "))
+# print(paste(cmd, args))
+# system2(cmd, args)
+# ```
+#
+# ```{r, echo=FALSE, eval=TRUE, out.width="100%", results="markup"}
+# knitr::include_graphics(hm_out_filename)
+```
+
+
+
+
+## C {-} 
+
+```{r}
+# pf_out_filename = paste0("tmp/pf_metagene_", prefix, ".png")
+# cmd = "plotProfile"
+# args = paste0("--matrixFile ", matrix_filename, " --outFileName ", pf_out_filename, " --perGroup --samplesLabel ", paste0(samples, collapse=" "), " --regionsLabel ", paste0(regions, collapse=" "))
+# print(paste(cmd, args))
+# system2(cmd, args)
+# ```
+#
+#
+#
+# ```{r, echo=FALSE, out.width="100%", results="markup"}
+# knitr::include_graphics(pf_out_filename)
+```
+
+
+
+
+
+
+
+
+
+
+```{r, eval=TRUE, fig.height=12}
+palette(c("blue", "red"))
+raw_wig_signal = read.table(gzfile(matrix_filename), skip=1, stringsAsFactors=FALSE)
+rownames(raw_wig_signal) = raw_wig_signal[,4]
+head(raw_wig_signal[,1:10])
+foo = apply(raw_wig_signal[,-(1:6)], 2, mean)
+# plot(foo)
+# rev(sort(foo))[1:6]
+# head(raw_wig_signal[rev(rank(foo)),])
+# table(raw_wig_signal[,1])
+layout(matrix(1:8, 4), respect=TRUE)
+for (grp in sort(unique(df$grp))) {
+  idx_genes = rownames(df[df$grp==grp,])
+  plot(0,0, col=0, xlim=c(1,200), ylim=c(0,150), ylab="ATAC-seq signal (rpm)", xaxt="n", main=paste0("grp", grp), xlab="")
+  axis(1, at=c(1, 50, 200), c(paste0("-", brsl/1000, "kb"), "TSS", paste0("+", arsl/1000, "kb")))
+  abline(v=c(0,50,150,200), lty=3)
+  mean_sig = sapply(1:8, function(i) {
+    idx_bins = 1:200 + (i-1)*200
+    foo = apply(raw_wig_signal[idx_genes,-(1:6)][,idx_bins], 2, mean, na.rm=TRUE)
+    # lines(foo, lty=2, col=(!i%in%1:4)+1)
+    foo
+  })
+  lines(apply(mean_sig[,1:4], 1, mean), col=1)
+  # lines(apply(mean_sig[,1:4], 1, mean) + 2*apply(mean_sig[,1:4], 1, sd)/sqrt(4), col=1, lt=2)
+  # lines(apply(mean_sig[,1:4], 1, mean) - 2*apply(mean_sig[,1:4], 1, sd)/sqrt(4), col=1, lt=2)
+  polygon(
+    c(1:200, 200:1), 
+    c(apply(mean_sig[,1:4], 1, mean) + 2*apply(mean_sig[,1:4], 1, sd)/sqrt(4), 
+      rev(apply(mean_sig[,1:4], 1, mean) - 2*apply(mean_sig[,1:4], 1, sd)/sqrt(4))), 
+    col=adjustcolor(1, alpha.f=0.3),
+    border=adjustcolor(1, alpha.f=0.6)
+  ) 
+
+  lines(apply(mean_sig[,5:8], 1, mean), col=2)
+  # lines(apply(mean_sig[,5:8], 1, mean) + 2*apply(mean_sig[,5:8], 1, sd)/sqrt(4), col=2, lt=2)
+  # lines(apply(mean_sig[,5:8], 1, mean) - 2*apply(mean_sig[,5:8], 1, sd)/sqrt(4), col=2, lt=2)
+  polygon(
+    c(1:200, 200:1), 
+    c(apply(mean_sig[,5:8], 1, mean) + 2*apply(mean_sig[,5:8], 1, sd)/sqrt(4), 
+      rev(apply(mean_sig[,5:8], 1, mean) - 2*apply(mean_sig[,5:8], 1, sd)/sqrt(4))), 
+    col=adjustcolor(2, alpha.f=0.3),
+    border=adjustcolor(2, alpha.f=0.6)
+  ) 
+  
+}
+plot.new()
+legend("top", c("WT", "KO"), lty=c(1,1), col=c(1,2))
+```
+
+## D {-}
+
+```{r, eval=TRUE, fig.height=12}
+layout(matrix(1:8, 4), respect=TRUE)
+# Loading full data matrix
+table_file = "../rnaseq_atad2_tgml/04_deseq2/tables/d20wtvsd20ko.complete.txt"
+daresults = mread.table(table_file, header=TRUE)
+rownames(daresults) = daresults$Id
+# data = log2(as.matrix(daresults[c(pooled_up_genes),substr(colnames(daresults), 1, 4) == "norm"])+1)
+# data = log2(as.matrix(daresults[c(pooled_dw_genes),substr(colnames(daresults), 1, 4) == "norm"])+1)
+data = log2(as.matrix(daresults[,substr(colnames(daresults), 1, 4) == "norm"])+1)
+colnames(data) = substr(colnames(data), 6, 1000)
+head(data)
+
+# Sort data matrix
+day = substr(colnames(data), 1,3)
+day
+line = substr(colnames(data), 5,6)
+line = factor(line, levels=rev(unique(line)))
+line
+# data = data[,order(day,line)]
+data = data[,order(line, day)]
+# d = cbind(data.frame(day=day, line=line), t(norm_data))
+# data = data[pooled_up_genes,]
+head(data)
+
+# zscore
+data = data - apply(data, 1, mean)
+data = data / apply(data, 1, sd)    
+
+
+
+
+for (grp in sort(unique(df$grp))) {
+  idx_genes = rownames(df[df$grp==grp,])
+  d = apply(data[intersect(idx_genes, rownames(data)),], 1, function(l) {
+    data.frame(sample=colnames(data), expr=l)
+  })
+  d = do.call(rbind, d)
+  d$day = substr(colnames(data), 1,3)
+  d$line = substr(colnames(data), 5,6)
+  d$day = substr(colnames(data), 1,3)
+  d$line = substr(colnames(data), 5,6)
+  d$line = factor(d$line, levels=unique(d$line))
+  boxplot(expr~line+day, d[], col=c("blue","red"), las=2, xlab="", ylab=paste0("z-score of grp", grp, " genes (a.u.)"), main=paste0("grp", grp, " genes"))    
+}
+
+
+
+
+
+
+
+```
+
+
+
+# Legend
+
+A. **Genes selection according to expression in Rounds**. The plot shows the mean (respectively the standard deviation of) expression of genes over 3 replicates of isolated round spermatid cells on y-axis (respectively x-axis). The genes where divided into 4 groups (grp1 in blue, grp2in cyan, grp3 in green and grp4 in orange) according to the quartile of there mean expression.
+
+B. **Heatmap on ATAC-seq signal**. The heatmap shows the ATAC-seq signal of each group (grp1 in blue, grp2in cyan, grp3 in green and grp4 in orange) in rows and for 4 WT and 4 KO in column.
+
+C. **Profiles according to selected genes**. The panel C shows for each group the mean profile (solid line) of 4 replicates WT (in blue) and 4 KO (in red) +/- 2 sem (transparency) over the 4 replicates.
+
+D. **Boxplot** The 4 boxplots show expression of group 1, group 2, group 3 and group4 genes previously defined along of the time course and according to the Atad2 status (WT in blue and KO in red).
+
+
+
+# Material and Methods
+
+
+**Library preparation**
+
+Frozen nuclei were centrifuged at 3000 g for 5 minutes and then washed in a 1% BSA PBS solution. Libraries were then prepared from 100,000 nuclei using the ATAC-seq Kit (Catalog No. 53150) from Active Motif, following the manufacturer’s protocol (version B9). After quality control with Qubit and Fragment Analyzer libraries were subsequently purified using AMPure XP (Beckman Coulter, Catalog No. A63881) beads with a double size selection of 100-800 bp fragments. After a second round of quality control (Qubit and Fragment Analyzer) library a paired-end sequencing was conducted on a NextSeq 2000 device using a 200-cycle P2 flow cell.
+
+
+
+**Trimming**
+
+The raw fastq files were processed by 5 prime trimming, keeping 30bp-length fragments, using `fastx_trimmer` [http://hannonlab.cshl.edu/fastx_toolkit/. Accessed 28 Feb. 2022.], with options -l 30 -Q33. 
+
+**Alignment**
+
+The trimmed fastq files were aligned on the `r annotation` `r species` `r version` genome using the `Bowtie2` aligner (Langmead and Salzberg 2012) [PMID: 22388286], with options –end-to-end, –no-mixed, –no-discordant. 
+
+**Normalization**
+
+The big wig files (.bw) containing normalized integrated aligned read count signals were obtained from 
+by normalizing and smoothing bam files using `bamCoverage` (from `deepTools` suite (Ramirez et al. 2014) [PMID: 24799436])
+with options: --binSize 4 --minMappingQuality 30 --normalizeUsing RPM
+  
+
+**Heatmap**
+
+The normalized ChIP signal were converted into a 10bp bin matrix of the signal `r brsl`b upstream and `r arsl`b downstream protein-coding genes TSS, using `computeMatrix` (from `deepTools` suite (Ramirez et al. 2014) [PMID: 24799436]), with options reference-point -R mm10_pc.bed --referencePoint TSS --binSize 10 --beforeRegionStartLength `r brsl` --afterRegionStartLength `r arsl` 
+
+Heatmaps were generated using `plotHeatmap` (`deepTools` suite (Ramirez et al. 2014) [PMID: 24799436]).
+
+
+
+
+
+# Session Information
+
+```{r results="verbatim"}
+sessionInfo()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
