@@ -14,17 +14,35 @@ rsync -auvP ~/projects/${project}/results/${gse}/ dahu:~/projects/${project}/res
 
 
 
-# 2. Download fastq files NCBI/GEO... 
-# data description
-echo https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=${gse}
-# ## download NCBI/SRA db
-# wget https://ftp.ncbi.nlm.nih.gov/srp/reports/Metadata/SRA_Accessions.tab
-# ## preprocessing it...
-# cat ~/projects/datashare/platforms/SRA_Accessions.tab | grep SRA | grep RUN > ~/projects/datashare/platforms/SRA_Accessions_SRA_RUN.tab
-# cat ~/projects/datashare/platforms/SRA_Accessions.tab | grep SRA | grep GSE > ~/projects/datashare/platforms/SRA_Accessions_SRA_GSE.tab
-# cat ~/projects/datashare/platforms/SRA_Accessions.tab | grep SRP | grep GSE > ~/projects/datashare/platforms/SRA_Accessions_SRP_GSE.tab
+# 2. Download fastq files from NCBI/GEO 
+# ## download preproc NCBI/SRA db
+if [ -f "SRA_Accessions.tab" ]; then
+    echo "SRA_Accessions.tab file exists."
+else
+    ## downloading...
+    wget https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/SRA_Accessions.tab
+    ## preprocessing...
+    cat SRA_Accessions.tab | grep GSE277943
+    cat SRA_Accessions.tab | grep GSE283879
+    cat SRA_Accessions.tab | grep GSE284749
+
+    cat SRA_Accessions.tab | grep SRA | grep RUN > SRA_Accessions_SRA_RUN.tab
+    cat SRA_Accessions.tab | grep SRA | grep GSE > SRA_Accessions_SRA_GSE.tab
+    cat SRA_Accessions.tab | grep SRP | grep GSE > SRA_Accessions_SRP_GSE.tab
+fi
 # sra=`cat ~/projects/datashare/platforms/SRA_Accessions_SRA_GSE.tab | grep ${gse} | cut -f2 | grep SRA | uniq`
-srp=`cat ~/projects/datashare/platforms/SRA_Accessions_SRP_GSE.tab | grep ${gse} | cut -f1 | grep SRP | uniq`
+cat SRA_Accessions_SRP_GSE.tab | grep GSE277943 | cut -f1 | grep SRP | uniq`
+srp=`cat SRA_Accessions_SRP_GSE.tab | grep GSE283879 | cut -f1 | grep SRP | uniq`
+srp=`cat SRA_Accessions_SRP_GSE.tab | grep GSE284749 | cut -f1 | grep SRP | uniq`
+
+
+
+GSE277943	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	24	Sep 24, 2024	Approved	Public	Jan 05, 2026
+GSE283879	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	12	Dec 09, 2024	Approved	Public	Jan 05, 2026
+GSE284749	Control of Post-Meiotic Gene Expression by H2A.L.2
+
+
+
 echo $srp
 if [[ -f ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab ]]; then
    echo "File ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab exists."
