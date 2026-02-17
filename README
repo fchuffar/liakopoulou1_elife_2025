@@ -30,27 +30,22 @@ else
     cat SRA_Accessions.tab | grep SRA | grep GSE > SRA_Accessions_SRA_GSE.tab
     cat SRA_Accessions.tab | grep SRP | grep GSE > SRA_Accessions_SRP_GSE.tab
 fi
-# sra=`cat ~/projects/datashare/platforms/SRA_Accessions_SRA_GSE.tab | grep ${gse} | cut -f2 | grep SRA | uniq`
-cat SRA_Accessions_SRP_GSE.tab | grep GSE277943 | cut -f1 | grep SRP | uniq`
-srp=`cat SRA_Accessions_SRP_GSE.tab | grep GSE283879 | cut -f1 | grep SRP | uniq`
-srp=`cat SRA_Accessions_SRP_GSE.tab | grep GSE284749 | cut -f1 | grep SRP | uniq`
 
+# GSE277943	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	24	Sep 24, 2024	Approved	Public	Jan 05, 2026
+# GSE283879	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	12	Dec 09, 2024	Approved	Public	Jan 05, 2026
+# GSE284749	Control of Post-Meiotic Gene Expression by H2A.L.2
+gse=GSE277943
+gse=GSE283879
+gse=GSE284749
 
-
-GSE277943	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	24	Sep 24, 2024	Approved	Public	Jan 05, 2026
-GSE283879	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	12	Dec 09, 2024	Approved	Public	Jan 05, 2026
-GSE284749	Control of Post-Meiotic Gene Expression by H2A.L.2
-
-
-
+srp=`cat SRA_Accessions_SRP_GSE.tab | grep $gse | cut -f1 | grep SRP | uniq`
 echo $srp
-if [[ -f ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab ]]; then
-   echo "File ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab exists."
+if [[ -f SRA_Accessions_${srp}.tab ]]; then
+   echo "File SRA_Accessions_${srp}.tab exists."
 else
-  # cat ~/projects/datashare/platforms/SRA_Accessions_SRA_RUN.tab | grep ${sra} > ~/projects/datashare/platforms/SRA_Accessions_${sra}.tab
-  cat ~/projects/datashare/platforms/SRA_Accessions_SRP_RUN.tab | grep ${srp} > ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab
+  cat SRA_Accessions_SRA_RUN.tab | grep ${srp} > SRA_Accessions_${srp}.tab
 fi
-srrs=`cat ~/projects/datashare/platforms/SRA_Accessions_${srp}.tab | grep RUN | grep ${srp} | cut -f1 | grep SRR`
+srrs=`cat SRA_Accessions_${srp}.tab | grep RUN | grep ${srp} | cut -f1 | grep SRR`
 echo $srrs
 echo $srrs | wc
 
