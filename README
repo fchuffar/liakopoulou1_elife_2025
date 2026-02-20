@@ -10,7 +10,7 @@ source config
 echo $gse
 echo $project
 ## push to dahu
-rsync -auvP ~/projects/${project}/results/${gse}/ dahu:~/projects/${project}/results/${gse}/
+rsync -auvP ~/projects/mouse_spermato/results/liakopoulou1_elife_2025/ luke:/bettik/chuffarf/liakopoulou1_elife_2025/
 
 
 
@@ -21,11 +21,11 @@ if [ -f "SRA_Accessions.tab" ]; then
 else
     ## downloading...
     wget https://ftp.ncbi.nlm.nih.gov/sra/reports/Metadata/SRA_Accessions.tab
-    ## preprocessing...
+    ## check updates for our GSEs
     cat SRA_Accessions.tab | grep GSE277943
     cat SRA_Accessions.tab | grep GSE283879
     cat SRA_Accessions.tab | grep GSE284749
-
+    ## preprocessing...
     cat SRA_Accessions.tab | grep SRA | grep RUN > SRA_Accessions_SRA_RUN.tab
     cat SRA_Accessions.tab | grep SRA | grep GSE > SRA_Accessions_SRA_GSE.tab
     cat SRA_Accessions.tab | grep SRP | grep GSE > SRA_Accessions_SRP_GSE.tab
@@ -36,24 +36,35 @@ fi
 # GSE284749	Control of Post-Meiotic Gene Expression by H2A.L.2
 gse=GSE277943
 gse=GSE283879
-gse=GSE284749
+# gse=GSE284749
 
-srp=`cat SRA_Accessions_SRP_GSE.tab | grep $gse | cut -f1 | grep SRP | uniq`
-echo $srp
-if [[ -f SRA_Accessions_${srp}.tab ]]; then
-   echo "File SRA_Accessions_${srp}.tab exists."
-else
-  cat SRA_Accessions_SRA_RUN.tab | grep ${srp} > SRA_Accessions_${srp}.tab
-fi
-srrs=`cat SRA_Accessions_${srp}.tab | grep RUN | grep ${srp} | cut -f1 | grep SRR`
-echo $srrs
-echo $srrs | wc
+for gse in GSE277943 GSE283879 GSE284749
 
+  srp=`cat SRA_Accessions_SRP_GSE.tab | grep $gse | cut -f1 | grep SRP | uniq`
+  echo $srp
+  if [[ -f SRA_Accessions_${srp}.tab ]]; then
+    echo "File SRA_Accessions_${srp}.tab exists."
+  else
+    cat SRA_Accessions_SRA_RUN.tab | grep ${srp} > SRA_Accessions_${srp}.tab
+  fi
+  srrs=`cat SRA_Accessions_${srp}.tab | grep RUN | grep ${srp} | cut -f1 | grep SRR`
+  echo $srrs
+  echo $srrs | wc
 
-GSE277943	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	24	Sep 24, 2024	Approved	Public	Jan 05, 2026
-GSE283879	ATAD2 drives HIRA/histone H3.3-dependent chromatin dynamics	12	Dec 09, 2024	Approved	Public	Jan 05, 2026
-GSE284749	Control of Post-Meiotic Gene Expression by H2A.L.2
-
+  mkdir -p datashare/${gse}/raw/
+  for srr in $srrs
+  do
+    if [[ -f datashare/${gse}/raw/${srr}.fastq || -f datashare/${gse}/raw/${srr}.fastq.gz || -f datashare/${gse}/raw/${srr}_1.fastq || -f datashare/${gse}/raw/${srr}_1.fastq.gz ]]; then
+      echo "File ${srr} fastq file exists."
+    else
+      echo "File ${srr} file fastq does not exist."
+      url1=ftp://ftp.sra.ebi.ac.uk/vol1/fastq/`echo ${srr} | cut -c1-6`/0`echo ${srr} | rev | cut -c1-2 | rev`/${srr}/${srr}_1.fastq.gz
+      url2=ftp://ftp.sra.ebi.ac.uk/vol1/fastq/`echo ${srr} | cut -c1-6`/0`echo ${srr} | rev | cut -c1-2 | rev`/${srr}/${srr}_2.fastq.gz
+      # wget -nc ${url1} -P datashare/${gse}/raw/
+      # wget -nc ${url2} -P datashare/${gse}/raw/
+    fi
+  done
+done
 
 
 # 2. Put raw fastq file in ~/projects/datashare/${gse}/raw
